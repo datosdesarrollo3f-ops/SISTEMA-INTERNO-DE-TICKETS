@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export default function LoginScreen({ onLoginSuccess }) {
+export default function LoginScreen({ onLoginSuccess, theme, setTheme }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -46,6 +46,32 @@ export default function LoginScreen({ onLoginSuccess }) {
 
   return (
     <div id="loginScreen" className="login-screen">
+      {/* Theme Toggle Button */}
+      <button 
+        type="button"
+        onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} 
+        style={{
+          position: 'absolute',
+          top: '20px',
+          right: '20px',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-color)',
+          color: 'var(--text-main)',
+          padding: '8px 16px',
+          borderRadius: '10px',
+          cursor: 'pointer',
+          fontWeight: '600',
+          fontSize: '13px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          boxShadow: 'var(--glass-shadow)',
+          zIndex: 10000
+        }}
+      >
+        {theme === 'light' ? '🌙 Modo Oscuro' : '☀️ Modo Claro'}
+      </button>
+
       {/* Background ambient animations */}
       <div className="bg-blob blob-1"></div>
       <div className="bg-blob blob-2"></div>
@@ -53,8 +79,8 @@ export default function LoginScreen({ onLoginSuccess }) {
 
       <div className="login-card-container">
         <div className="login-card">
-          <div className="login-logo">
-            <div className="logo-icon">🏛️</div>
+          <div className="login-logo" style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+            <img src="/logo3f.png" alt="Logo 3F" className="logo-img" style={{ width: '85px', height: '85px', borderRadius: '16px', objectFit: 'contain', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
           </div>
           <h1>Sistema de Gestión de Reclamos</h1>
           <p className="login-subtitle">Municipalidad - Portal Interno de Cargas</p>
