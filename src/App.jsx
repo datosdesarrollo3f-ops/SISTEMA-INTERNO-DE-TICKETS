@@ -8,6 +8,16 @@ function App() {
   const [userRole, setUserRole] = useState(null); // 'usuario' or 'admin'
   const [loading, setLoading] = useState(true);
   const [currentHash, setCurrentHash] = useState(window.location.hash || '#/login');
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark-theme');
+    } else {
+      document.documentElement.classList.remove('dark-theme');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
 
   useEffect(() => {
     // Check if session exists in localStorage
@@ -100,7 +110,7 @@ function App() {
 
   // Safe rendering
   if (!currentUser) {
-    return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
+    return <LoginScreen onLoginSuccess={handleLoginSuccess} theme={theme} setTheme={setTheme} />;
   }
 
   return (
@@ -113,9 +123,29 @@ function App() {
           </span>
           <span className="user-display-name">{currentUser}</span>
         </div>
-        <button className="logout-btn" onClick={handleLogout}>
-          🚪 Salir del Sistema
-        </button>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <button 
+            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} 
+            style={{
+              background: 'var(--bg-main)',
+              border: '1px solid var(--border-color)',
+              color: 'var(--text-main)',
+              padding: '6px 12px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontWeight: '500',
+              fontSize: '13px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            {theme === 'light' ? '🌙 Modo Oscuro' : '☀️ Modo Claro'}
+          </button>
+          <button className="logout-btn" onClick={handleLogout}>
+            🚪 Salir del Sistema
+          </button>
+        </div>
       </div>
 
       {/* Render the appropriate portal depending on role & hash */}
