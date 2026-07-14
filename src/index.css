@@ -4,46 +4,46 @@
 :root {
   --font-primary: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   
-  /* Color Palette (Vibrant Dark Theme) */
-  --bg-main: #06080f;
-  --bg-card: rgba(17, 24, 39, 0.45);
-  --bg-card-hover: rgba(26, 36, 56, 0.65);
-  --bg-input: rgba(10, 14, 23, 0.6);
+  /* Color Palette (Clean Corporate Light Theme - Tres de Febrero) */
+  --bg-main: #f4f6f9;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f8fafc;
+  --bg-input: #ffffff;
   
-  /* Fresh Neon Accent Colors */
-  --color-primary: #3b82f6; /* Electric Blue */
-  --color-secondary: #8b5cf6; /* Modern Purple */
-  --color-tertiary: #ec4899; /* Vibrant Pink */
+  /* Municipal Brand Colors (Navy Blue & Gold) */
+  --color-primary: #1d3e75; /* Azul 3F */
+  --color-secondary: #d88f1c; /* Oro/Naranja 3F */
+  --color-tertiary: #1e5a9b; /* Azul Secundario */
   
-  --grad-accent: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%);
-  --grad-hover: linear-gradient(135deg, #2563eb 0%, #7c3aed 50%, #db2777 100%);
+  --grad-accent: linear-gradient(135deg, #1d3e75 0%, #1e5a9b 50%, #d88f1c 100%);
+  --grad-hover: linear-gradient(135deg, #16305a 0%, #174b82 50%, #c47e14 100%);
   
   /* Semantic Colors */
   --color-success: #10b981;
-  --color-warning: #f59e0b;
+  --color-warning: #d88f1c;
   --color-danger: #ef4444;
-  --color-info: #06b6d4; /* Neon Cyan */
+  --color-info: #0284c7;
   
   /* Badges */
   --badge-success-bg: rgba(16, 185, 129, 0.12);
-  --badge-success-text: #34d399;
+  --badge-success-text: #059669;
   
-  --badge-warning-bg: rgba(245, 158, 11, 0.12);
-  --badge-warning-text: #fbbf24;
+  --badge-warning-bg: rgba(216, 143, 28, 0.12);
+  --badge-warning-text: #b4700d;
   
-  --badge-in-progress-bg: rgba(59, 130, 246, 0.12);
-  --badge-in-progress-text: #60a5fa;
+  --badge-in-progress-bg: rgba(29, 62, 117, 0.12);
+  --badge-in-progress-text: #1d3e75;
 
   /* Typography & Borders */
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --border-color: rgba(255, 255, 255, 0.05);
-  --border-focus: rgba(139, 92, 246, 0.4);
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+  --border-focus: #1d3e75;
   
-  /* Glassmorphism */
-  --glass-blur: blur(24px);
-  --glass-border: 1px solid rgba(255, 255, 255, 0.05);
-  --glass-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  /* Glassmorphic Shadows & Borders */
+  --glass-blur: none;
+  --glass-border: 1px solid #e2e8f0;
+  --glass-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.05), 0 4px 6px -4px rgba(15, 23, 42, 0.05);
 }
 
 /* ==========================================================================
@@ -59,8 +59,8 @@ body {
   font-family: var(--font-primary);
   background-color: var(--bg-main);
   background-image: 
-    radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.06) 0, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.06) 0, transparent 50%);
+    radial-gradient(at 0% 0%, rgba(29, 62, 117, 0.04) 0, transparent 55%),
+    radial-gradient(at 100% 0%, rgba(216, 143, 28, 0.04) 0, transparent 55%);
   color: var(--text-main);
   min-height: 100vh;
   overflow-x: hidden;
@@ -80,11 +80,11 @@ a, button, input, select, textarea, tr {
 }
 
 ::-webkit-scrollbar-track {
-  background: #090c13;
+  background: #f1f5f9;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1a2233;
+  background: #cbd5e1;
   border-radius: 4px;
 }
 
