@@ -1,8 +1,32 @@
 import React, { useState, useEffect } from 'react';
 
+const SUPABASE_URL = "https://mcabmoabfythqrbeywct.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jYWJtb2FiZnl0aHFyYmV5d2N0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5NzIxMjEsImV4cCI6MjA5OTU0ODEyMX0.mOsE8dGseQ493mwfxiIU8_ET1uN4BeYBJ7z4TXh9ik4";
+
+const mapSupabaseToTicket = (r) => ({
+  "ID PEDIDO": r.id_pedido || '',
+  "ESTADO APROBACION": r.estado_aprobacion || '',
+  "AREA": r.area || '',
+  "TIPO DE DEPENDENCIA": r.tipo_dependencia || '',
+  "INSTITUCIÓN": r.institucion || '',
+  "DIRECCIÓN": r.direccion || '',
+  "VÍA DE INGRESO": r.via_ingreso || '',
+  "FECHA CARGA AL SISTEMA": r.fecha_carga || '',
+  "FECHA RESOLUCIÓN": r.fecha_resolucion || '',
+  "DÍAS SIN RESPUESTA": r.dias_sin_respuesta,
+  "TIPO DE PEDIDO": r.tipo_pedido || '',
+  "DETALLE": r.detalle || '',
+  "NOMBRE Y APELLIDO SOLICITANTE": r.nombre_solicitante || '',
+  "CARGO SOLICITANTE": r.cargo_solicitante || '',
+  "ACCIONES": r.acciones || '',
+  "ESTADO DEL RECLAMO": r.estado_reclamo || ''
+});
+
 export default function AdminPortal({ currentUser }) {
   const [tickets, setTickets] = useState([]);
   const [lastUpdated, setLastUpdated] = useState('');
+  const [loadingTickets, setLoadingTickets] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   
   // Tab states
   const [activeTab, setActiveTab] = useState('tickets');
@@ -25,14 +49,46 @@ export default function AdminPortal({ currentUser }) {
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
+  const fetchTicketsFromSupabase = async (isManual = false) => {
+    if (isManual) setIsSyncing(true);
+    try {
+      const url = `${SUPABASE_URL}/rest/v1/reclamos?select=*`;
+      const res = await fetch(url, {
+        headers: {
+          "apikey": SUPABASE_KEY,
+          "Authorization": `Bearer ${SUPABASE_KEY}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const mapped = data.map(mapSupabaseToTicket);
+          setTickets(mapped);
+          const now = new Date();
+          const formattedTime = now.toLocaleDateString('es-AR') + ' ' + now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+          setLastUpdated(`Nube (Supabase) - ${formattedTime}`);
+        }
+      }
+    } catch (err) {
+      console.warn("[Supabase] Error al cargar tickets desde la nube:", err);
+    } finally {
+      setLoadingTickets(false);
+      if (isManual) setIsSyncing(false);
+    }
+  };
+
   useEffect(() => {
-    // Load database from window object (written by Python script)
-    if (window.baseTicketeraData) {
+    // 1. Cargar datos locales de inmediato si existen (para respuesta instantánea)
+    if (window.baseTicketeraData && window.baseTicketeraData.length > 0) {
       setTickets(window.baseTicketeraData);
+      setLoadingTickets(false);
     }
     if (window.baseTicketeraLastUpdated) {
       setLastUpdated(window.baseTicketeraLastUpdated);
     }
+
+    // 2. Traer en tiempo real la versión más reciente desde Supabase Nube
+    fetchTicketsFromSupabase();
 
     // Load users from localStorage
     const defaultUsers = {
@@ -297,9 +353,32 @@ export default function AdminPortal({ currentUser }) {
 
             {/* Table Container */}
             <div className="table-card">
-              <div className="table-header-info">
+              <div className="table-header-info" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                 <h3>Listado de Solicitudes</h3>
-                {lastUpdated && <span className="update-time">Actualizado: {lastUpdated}</span>}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  {lastUpdated && <span className="update-time">Actualizado: {lastUpdated}</span>}
+                  <button 
+                    onClick={() => fetchTicketsFromSupabase(true)} 
+                    disabled={isSyncing}
+                    title="Actualizar datos desde la nube de Supabase"
+                    style={{
+                      background: 'rgba(99, 102, 241, 0.15)',
+                      border: '1px solid rgba(99, 102, 241, 0.3)',
+                      color: '#818cf8',
+                      padding: '5px 12px',
+                      borderRadius: '6px',
+                      cursor: isSyncing ? 'not-allowed' : 'pointer',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    {isSyncing ? '⏳ Sincronizando...' : '🔄 Sincronizar Nube'}
+                  </button>
+                </div>
               </div>
 
               <div className="table-responsive">
