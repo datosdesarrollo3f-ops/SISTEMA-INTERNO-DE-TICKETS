@@ -46,6 +46,7 @@ export default function AdminPortal({ currentUser }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [claimStatusFilter, setClaimStatusFilter] = useState('');
+  const [delayFilter, setDelayFilter] = useState('');
   
   // Modal State
   const [selectedTicket, setSelectedTicket] = useState(null);
@@ -83,22 +84,37 @@ export default function AdminPortal({ currentUser }) {
     setBotStatusMessage('⏳ Conectando con el servidor local en tu PC...');
     setBotRunning(true);
     
-    try {
-      const res = await fetch('http://127.0.0.1:5000/ejecutar-bot', { method: 'POST' });
-      const data = await res.json();
+    const endpoints = ['http://127.0.0.1:5000', 'http://localhost:5000'];
+    let activeEndpoint = null;
+    let res = null;
 
+    for (const ep of endpoints) {
+      try {
+        const testRes = await fetch(`${ep}/ejecutar-bot`, { method: 'POST' });
+        if (testRes.ok || testRes.status === 409) {
+          activeEndpoint = ep;
+          res = testRes;
+          break;
+        }
+      } catch (e) {
+        // Continuar al siguiente endpoint
+      }
+    }
+
+    if (res && activeEndpoint) {
+      const data = await res.json();
       if (res.ok) {
         setBotStatusMessage('🚀 Bot iniciado en tu PC. Descargando tickets de Jira...');
         
         const interval = setInterval(async () => {
           try {
-            const pollRes = await fetch('http://127.0.0.1:5000/');
+            const pollRes = await fetch(`${activeEndpoint}/`);
             const pollData = await pollRes.json();
             
             if (!pollData.bot_ejecutando) {
               clearInterval(interval);
               setBotRunning(false);
-              if (pollData.ultimo_resultado === 'Éxito') {
+              if (pollData.ultimo_resultado === 'Exito' || pollData.ultimo_resultado === 'Éxito') {
                 setBotStatusMessage('✅ ¡Bot finalizado con éxito! Sincronizando datos...');
                 fetchTicketsFromSupabase(true);
               } else {
@@ -116,9 +132,9 @@ export default function AdminPortal({ currentUser }) {
         setBotRunning(false);
         setBotStatusMessage(`⚠️ ${data.message || 'El servidor local está ocupado.'}`);
       }
-    } catch (err) {
+    } else {
       setBotRunning(false);
-      setBotStatusMessage('❌ Servidor local no detectado en tu PC (http://localhost:5000). Asegúrate de tener "Iniciar Servidor Local.bat" abierto.');
+      setBotStatusMessage('❌ Servidor local no detectado en tu PC (http://localhost:5000). Asegúrate de iniciar "Iniciar Servidor Local.bat" o "Iniciar_Silencioso.vbs".');
     }
   };
 
@@ -153,10 +169,59 @@ export default function AdminPortal({ currentUser }) {
     }
   }, []);
 
+  // Date & Delay Helper functions
+  const parseDate = (dateStr) => {
+    if (!dateStr) return null;
+    const parts = dateStr.trim().split(' ');
+    const dateParts = parts[0].split('/');
+    if (dateParts.length === 3) {
+      const day = parseInt(dateParts[0], 10);
+      const month = parseInt(dateParts[1], 10) - 1;
+      const year = parseInt(dateParts[2], 10);
+      return new Date(year, month, day);
+    }
+    return null;
+  };
+
+  const isWithinLastMonth = (dateStr) => {
+    const d = parseDate(dateStr);
+    if (!d) return true; // Si no hay fecha reconocible, incluir en evaluación
+    const now = new Date();
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(now.getDate() - 30);
+    return d >= thirtyDaysAgo;
+  };
+
+  const getDelayBadgeStyle = (diasVal) => {
+    const d = Number(diasVal);
+    if (diasVal === undefined || diasVal === null || diasVal === '' || isNaN(d)) {
+      return { text: '-', style: { background: 'rgba(255,255,255,0.05)', color: '#a0aec0', border: '1px solid rgba(255,255,255,0.1)' } };
+    }
+    if (d >= 10) {
+      return { text: `🚨 ${d} días`, style: { background: 'rgba(239, 68, 68, 0.25)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.5)', fontWeight: '700' } };
+    }
+    if (d > 6) {
+      return { text: `⚠️ ${d} días`, style: { background: 'rgba(234, 179, 8, 0.2)', color: '#facc15', border: '1px solid rgba(234, 179, 8, 0.4)', fontWeight: '600' } };
+    }
+    return { text: `🟢 ${d} días`, style: { background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)' } };
+  };
+
   // Compute stats
   const totalTickets = tickets.length;
   const approvedTickets = tickets.filter(t => t['ESTADO APROBACION'] === 'APROBADO').length;
   const pendingTickets = tickets.filter(t => t['ESTADO APROBACION'] === 'PENDIENTE A APROBAR').length;
+
+  // Evaluar alertas únicamente sobre las solicitudes del último mes
+  const recentTickets = tickets.filter(t => isWithinLastMonth(t['FECHA CARGA AL SISTEMA']));
+  const warningTicketsCount = recentTickets.filter(t => {
+    const d = Number(t['DÍAS SIN RESPUESTA']);
+    return !isNaN(d) && d > 6 && d < 10;
+  }).length;
+
+  const criticalTicketsCount = recentTickets.filter(t => {
+    const d = Number(t['DÍAS SIN RESPUESTA']);
+    return !isNaN(d) && d >= 10;
+  }).length;
 
   // Get unique claim statuses for filter dropdown
   const uniqueClaimStatuses = [...new Set(tickets.map(t => t['ESTADO DEL RECLAMO']).filter(Boolean))].sort();
@@ -192,7 +257,13 @@ export default function AdminPortal({ currentUser }) {
     const matchesAppStatus = !statusFilter || t['ESTADO APROBACION'] === statusFilter;
     const matchesClaimStatus = !claimStatusFilter || t['ESTADO DEL RECLAMO'] === claimStatusFilter;
 
-    return matchesText && matchesAppStatus && matchesClaimStatus;
+    const dias = Number(t['DÍAS SIN RESPUESTA']);
+    const matchesDelay = !delayFilter ||
+      (delayFilter === 'NORMAL' && (isNaN(dias) || dias <= 6)) ||
+      (delayFilter === 'ADVERTENCIA' && !isNaN(dias) && dias > 6 && dias < 10) ||
+      (delayFilter === 'CRITICO' && !isNaN(dias) && dias >= 10);
+
+    return matchesText && matchesAppStatus && matchesClaimStatus && matchesDelay;
   });
 
   const openTicketDetails = (ticket) => {
@@ -333,6 +404,52 @@ export default function AdminPortal({ currentUser }) {
           </div>
         ) : (
           <>
+            {/* Banner Alerta Crítica (último mes) */}
+            {criticalTicketsCount > 0 && (
+              <div style={{
+                background: 'linear-gradient(90deg, rgba(239, 68, 68, 0.25) 0%, rgba(220, 38, 38, 0.15) 100%)',
+                border: '1px solid rgba(239, 68, 68, 0.5)',
+                color: '#fca5a5',
+                padding: '14px 18px',
+                borderRadius: '12px',
+                marginBottom: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px',
+                boxShadow: '0 4px 15px rgba(239, 68, 68, 0.15)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ fontSize: '26px' }}>🚨</span>
+                  <div>
+                    <strong style={{ fontSize: '15px', color: '#ffffff', display: 'block' }}>
+                      ¡Alerta Crítica de Demora!
+                    </strong>
+                    <span style={{ fontSize: '13px', color: '#fca5a5' }}>
+                      Hay <strong>{criticalTicketsCount}</strong> reclamos del último mes que superan o igualan los 10 días sin respuesta.
+                    </span>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setDelayFilter('CRITICO')}
+                  style={{
+                    background: '#ef4444',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    fontWeight: '600',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(239,68,68,0.4)'
+                  }}
+                >
+                  Ver Reclamos Críticos
+                </button>
+              </div>
+            )}
+
             {/* Stats Cards */}
             <div className="stats-grid">
               <div className="stat-card total">
@@ -352,8 +469,22 @@ export default function AdminPortal({ currentUser }) {
               <div className="stat-card pending">
                 <div className="stat-icon">⏳</div>
                 <div className="stat-info">
-                  <h4>Pendientes de Aprobación</h4>
+                  <h4>Pendientes Aprobación</h4>
                   <div className="stat-number">{pendingTickets}</div>
+                </div>
+              </div>
+              <div className="stat-card" style={{ background: 'rgba(234, 179, 8, 0.08)', borderColor: 'rgba(234, 179, 8, 0.25)' }}>
+                <div className="stat-icon" style={{ background: 'rgba(234, 179, 8, 0.15)', color: '#facc15' }}>⚠️</div>
+                <div className="stat-info">
+                  <h4>Demora >6 días (Mes)</h4>
+                  <div className="stat-number" style={{ color: '#facc15' }}>{warningTicketsCount}</div>
+                </div>
+              </div>
+              <div className="stat-card" style={{ background: 'rgba(239, 68, 68, 0.08)', borderColor: 'rgba(239, 68, 68, 0.25)' }}>
+                <div className="stat-icon" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#f87171' }}>🚨</div>
+                <div className="stat-info">
+                  <h4>Críticos ≥10 días (Mes)</h4>
+                  <div className="stat-number" style={{ color: '#f87171' }}>{criticalTicketsCount}</div>
                 </div>
               </div>
             </div>
@@ -393,6 +524,17 @@ export default function AdminPortal({ currentUser }) {
                 {uniqueClaimStatuses.map(status => (
                   <option key={status} value={status}>{status}</option>
                 ))}
+              </select>
+
+              <select
+                className="filter-select"
+                value={delayFilter}
+                onChange={(e) => setDelayFilter(e.target.value)}
+              >
+                <option value="">Demora S/R (Todas)</option>
+                <option value="NORMAL">🟢 En término (≤ 6 días)</option>
+                <option value="ADVERTENCIA">⚠️ Advertencia (7 a 9 días)</option>
+                <option value="CRITICO">🚨 Alerta Crítica (≥ 10 días)</option>
               </select>
             </div>
 
@@ -472,6 +614,7 @@ export default function AdminPortal({ currentUser }) {
                       <th>Fecha Carga</th>
                       <th>Solicitante</th>
                       <th>Tipo de Pedido</th>
+                      <th>Demora (S/R)</th>
                       <th>Aprobación</th>
                       <th>Estado Jira</th>
                     </tr>
@@ -479,7 +622,7 @@ export default function AdminPortal({ currentUser }) {
                   <tbody>
                     {filteredTickets.length === 0 ? (
                       <tr>
-                        <td colSpan="6" style={{ textAlign: 'center', color: '#a0aec0', padding: '30px' }}>
+                        <td colSpan="7" style={{ textAlign: 'center', color: '#a0aec0', padding: '30px' }}>
                           No se encontraron tickets con los filtros actuales.
                         </td>
                       </tr>
@@ -490,6 +633,11 @@ export default function AdminPortal({ currentUser }) {
                           <td>{ticket['FECHA CARGA AL SISTEMA'] || '-'}</td>
                           <td>{ticket['NOMBRE Y APELLIDO SOLICITANTE'] || '-'}</td>
                           <td>{ticket['TIPO DE PEDIDO'] || '-'}</td>
+                          <td>
+                            <span className="badge-status" style={getDelayBadgeStyle(ticket['DÍAS SIN RESPUESTA']).style}>
+                              {getDelayBadgeStyle(ticket['DÍAS SIN RESPUESTA']).text}
+                            </span>
+                          </td>
                           <td>
                             <span className={`badge-status ${ticket['ESTADO APROBACION'] === 'APROBADO' ? 'badge-approved-status' : 'badge-pending-status'}`}>
                               {ticket['ESTADO APROBACION'] || 'PENDIENTE A APROBAR'}
