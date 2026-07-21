@@ -27,6 +27,8 @@ export default function AdminPortal({ currentUser }) {
   const [lastUpdated, setLastUpdated] = useState('');
   const [loadingTickets, setLoadingTickets] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [botRunning, setBotRunning] = useState(false);
+  const [botStatusMessage, setBotStatusMessage] = useState('');
   
   // Tab states
   const [activeTab, setActiveTab] = useState('tickets');
@@ -74,6 +76,49 @@ export default function AdminPortal({ currentUser }) {
     } finally {
       setLoadingTickets(false);
       if (isManual) setIsSyncing(false);
+    }
+  };
+
+  const handleRunBotLocal = async () => {
+    setBotStatusMessage('⏳ Conectando con el servidor local en tu PC...');
+    setBotRunning(true);
+    
+    try {
+      const res = await fetch('http://127.0.0.1:5000/ejecutar-bot', { method: 'POST' });
+      const data = await res.json();
+
+      if (res.ok) {
+        setBotStatusMessage('🚀 Bot iniciado en tu PC. Descargando tickets de Jira...');
+        
+        const interval = setInterval(async () => {
+          try {
+            const pollRes = await fetch('http://127.0.0.1:5000/');
+            const pollData = await pollRes.json();
+            
+            if (!pollData.bot_ejecutando) {
+              clearInterval(interval);
+              setBotRunning(false);
+              if (pollData.ultimo_resultado === 'Éxito') {
+                setBotStatusMessage('✅ ¡Bot finalizado con éxito! Sincronizando datos...');
+                fetchTicketsFromSupabase(true);
+              } else {
+                setBotStatusMessage(`⚠️ El bot finalizó: ${pollData.ultimo_resultado}`);
+              }
+              setTimeout(() => setBotStatusMessage(''), 8000);
+            }
+          } catch (e) {
+            clearInterval(interval);
+            setBotRunning(false);
+            setBotStatusMessage('⚠️ Conexión perdida con el servidor local.');
+          }
+        }, 3000);
+      } else {
+        setBotRunning(false);
+        setBotStatusMessage(`⚠️ ${data.message || 'El servidor local está ocupado.'}`);
+      }
+    } catch (err) {
+      setBotRunning(false);
+      setBotStatusMessage('❌ Servidor local no detectado en tu PC (http://localhost:5000). Asegúrate de tener "Iniciar Servidor Local.bat" abierto.');
     }
   };
 
@@ -355,8 +400,31 @@ export default function AdminPortal({ currentUser }) {
             <div className="table-card">
               <div className="table-header-info" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                 <h3>Listado de Solicitudes</h3>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                   {lastUpdated && <span className="update-time">Actualizado: {lastUpdated}</span>}
+                  
+                  <button 
+                    onClick={handleRunBotLocal} 
+                    disabled={botRunning}
+                    title="Ejecutar el bot de Jira en tu PC local"
+                    style={{
+                      background: botRunning ? 'rgba(234, 179, 8, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                      border: botRunning ? '1px solid rgba(234, 179, 8, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)',
+                      color: botRunning ? '#facc15' : '#34d399',
+                      padding: '5px 12px',
+                      borderRadius: '6px',
+                      cursor: botRunning ? 'wait' : 'pointer',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    {botRunning ? '⚡ Descargando Tickets...' : '🤖 Descargar Tickets Jira'}
+                  </button>
+
                   <button 
                     onClick={() => fetchTicketsFromSupabase(true)} 
                     disabled={isSyncing}
@@ -380,6 +448,21 @@ export default function AdminPortal({ currentUser }) {
                   </button>
                 </div>
               </div>
+
+              {botStatusMessage && (
+                <div style={{
+                  margin: '12px 0 5px 0',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  background: botStatusMessage.includes('❌') || botStatusMessage.includes('⚠️') ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                  color: botStatusMessage.includes('❌') || botStatusMessage.includes('⚠️') ? '#f87171' : '#34d399',
+                  border: botStatusMessage.includes('❌') || botStatusMessage.includes('⚠️') ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)'
+                }}>
+                  {botStatusMessage}
+                </div>
+              )}
 
               <div className="table-responsive">
                 <table className="admin-table">
