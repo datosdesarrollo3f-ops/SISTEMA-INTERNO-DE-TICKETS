@@ -627,94 +627,98 @@ header p {
   color: var(--text-muted);
 }
 
-.table-responsive {
-  overflow-x: auto;
-  max-height: 520px;
-}
-
-.admin-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-}
-
-.admin-table th {
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: var(--glass-blur);
-  color: var(--color-primary);
-  font-weight: 700;
-  padding: 16px 20px;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  font-size: 13px;
-  border-bottom: 1px solid var(--border-color);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.admin-table td {
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--border-color);
-  color: var(--text-main);
-  font-size: 13px;
-  white-space: nowrap;
-  max-width: 250px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.admin-table tbody tr {
-  cursor: pointer;
-}
-
-.admin-table tbody tr:hover {
-  background: rgba(99, 102, 241, 0.04);
-}
-
-/* Dynamic Badge Styles */
-.badge-status {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 9999px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.25px;
-  text-transform: uppercase;
-}
-
-.badge-status.badge-approved-status {
-  background: var(--badge-success-bg);
-  color: var(--badge-success-text);
-}
-
-.badge-status.badge-pending-status {
-  background: var(--badge-warning-bg);
-  color: var(--badge-warning-text);
-}
-
-.badge-status.badge-in-progress-status {
-  background: var(--badge-in-progress-bg);
-  color: var(--badge-in-progress-text);
-}
-
-.no-data-warning {
-  padding: 60px 40px;
-  text-align: center;
-  background: var(--bg-card);
-  border-radius: 16px;
-  border: 2px dashed rgba(239, 68, 68, 0.3);
-  color: var(--text-main);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 15px;
-}
-
-/* ==========================================================================
-   MODAL DIALOG (TICKET DETAILS LOG)
-   ========================================================================== */
+.table-responsive {
+  overflow-x: auto;
+  max-height: 520px;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.admin-table th {
+  background: rgba(29, 62, 117, 0.08);
+  backdrop-filter: blur(8px);
+  color: var(--color-primary);
+  font-weight: 700;
+  padding: 16px 20px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  font-size: 12px;
+  border-bottom: 2px solid var(--border-color);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dark-theme .admin-table th {
+  background: rgba(15, 23, 42, 0.92);
+  color: #93c5fd;
+}
+
+.admin-table td {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-main);
+  font-size: 13px;
+  white-space: nowrap;
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-table tbody tr {
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.15s ease;
+}
+
+.admin-table tbody tr:hover {
+  background: rgba(99, 102, 241, 0.06);
+}
+
+/* Dynamic Badge Styles */
+.badge-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.25px;
+  text-transform: uppercase;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.badge-status.badge-approved-status {
+  background: var(--badge-success-bg);
+  color: var(--badge-success-text);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.badge-status.badge-pending-status {
+  background: var(--badge-warning-bg);
+  color: var(--badge-warning-text);
+  border: 1px solid rgba(216, 143, 28, 0.25);
+}
+
+.badge-status.badge-in-progress-status {
+  background: var(--badge-in-progress-bg);
+  color: var(--badge-in-progress-text);
+  border: 1px solid rgba(29, 62, 117, 0.25);
+}
+
+.stat-card {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 24px -6px rgba(0, 0, 0, 0.1);
+}
+
 .modal-overlay {
   position: fixed;
   top: 0;
