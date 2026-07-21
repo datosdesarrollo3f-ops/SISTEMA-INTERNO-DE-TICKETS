@@ -12,11 +12,13 @@ export default function UserPortal() {
     titulo: '',
     nombre: '',
     secretaria: '',
-    aprobador: '',
     cargo: 'Administrativo/a',
     ubicacion: '',
     necesita: ''
   });
+
+  const [photoName, setPhotoName] = useState('');
+  const [photoBase64, setPhotoBase64] = useState('');
 
   const URL_PLANILLA = "https://script.google.com/macros/s/AKfycbw62Nt75T49M26O4Zuf-f77tB7YH6ZYHykAl-YSdB_mgssHPHYcDjF8roSr425SIorG/exec";
 
@@ -31,17 +33,64 @@ export default function UserPortal() {
     setSuccess(false);
   };
 
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) {
+      setPhotoName('');
+      setPhotoBase64('');
+      return;
+    }
+
+    setPhotoName(file.name);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1000;
+        const MAX_HEIGHT = 1000;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Compresión ultra eficiente a JPEG 60% (~80KB - 120KB)
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
+        setPhotoBase64(compressedBase64);
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleBack = () => {
     setView('selection');
     setFormData({
       titulo: '',
       nombre: '',
       secretaria: '',
-      aprobador: '',
       cargo: 'Administrativo/a',
       ubicacion: '',
       necesita: ''
     });
+    setPhotoName('');
+    setPhotoBase64('');
   };
 
   const handleSubmit = (e) => {
@@ -51,12 +100,14 @@ export default function UserPortal() {
       titulo: formData.titulo,
       nombre: formData.nombre,
       secretaria: formData.secretaria,
-      aprobador: formData.aprobador,
+      aprobador: '',
       cargo: formData.cargo,
       ubicacion: formData.ubicacion,
       necesita: formData.necesita,
       servicio: selectedService,
-      area: selectedCategory
+      area: selectedCategory,
+      fotoBase64: photoBase64,
+      fotoNombre: photoName
     };
 
     const jsonString = JSON.stringify(dataToSend);
@@ -84,11 +135,12 @@ export default function UserPortal() {
       titulo: '',
       nombre: '',
       secretaria: '',
-      aprobador: '',
       cargo: 'Administrativo/a',
       ubicacion: '',
       necesita: ''
     });
+    setPhotoName('');
+    setPhotoBase64('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -326,18 +378,6 @@ export default function UserPortal() {
                 </select>
               </div>
 
-              <div className="form-group">
-                <label htmlFor="aprobador">Aprobador (Jefe Directo)</label>
-                <input
-                  type="text"
-                  id="aprobador"
-                  placeholder="Nombre de tu aprobador"
-                  value={formData.aprobador}
-                  onChange={(e) => setFormData({ ...formData, aprobador: e.target.value })}
-                  required
-                />
-              </div>
-
               <div className="form-group full-width">
                 <label htmlFor="ubicacion">Ubicación del Incidente</label>
                 <input
@@ -360,6 +400,27 @@ export default function UserPortal() {
                   onChange={(e) => setFormData({ ...formData, necesita: e.target.value })}
                   required
                 ></textarea>
+              </div>
+
+              <div className="form-group full-width">
+                <label htmlFor="foto" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>📸 Adjuntar Foto (Opcional / Requerido para ciertos trámites)</span>
+                  {photoName && <span style={{ color: '#34d399', fontSize: '12px', fontWeight: '500' }}>✓ {photoName}</span>}
+                </label>
+                <input
+                  type="file"
+                  id="foto"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  style={{
+                    padding: '8px 12px',
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    color: 'var(--text-main)',
+                    cursor: 'pointer'
+                  }}
+                />
               </div>
 
               <button type="submit" className="submit-btn">📨 Enviar Reclamo</button>
