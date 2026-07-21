@@ -404,32 +404,27 @@ export default function AdminPortal({ currentUser }) {
           </div>
         ) : (
           <>
-            {/* Banner Alerta Crítica (último mes) */}
+            {/* Banner Alerta Crítica (Compacto y Altamente Legible) */}
             {criticalTicketsCount > 0 && (
               <div style={{
-                background: 'linear-gradient(90deg, rgba(239, 68, 68, 0.25) 0%, rgba(220, 38, 38, 0.15) 100%)',
-                border: '1px solid rgba(239, 68, 68, 0.5)',
-                color: '#fca5a5',
-                padding: '14px 18px',
-                borderRadius: '12px',
-                marginBottom: '20px',
+                background: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid #ef4444',
+                borderLeft: '4px solid #ef4444',
+                color: 'var(--text-main)',
+                padding: '8px 14px',
+                borderRadius: '8px',
+                marginBottom: '15px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '12px',
-                boxShadow: '0 4px 15px rgba(239, 68, 68, 0.15)'
+                gap: '10px',
+                fontSize: '13px'
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ fontSize: '26px' }}>🚨</span>
-                  <div>
-                    <strong style={{ fontSize: '15px', color: '#ffffff', display: 'block' }}>
-                      ¡Alerta Crítica de Demora!
-                    </strong>
-                    <span style={{ fontSize: '13px', color: '#fca5a5' }}>
-                      Hay <strong>{criticalTicketsCount}</strong> reclamos del último mes que superan o igualan los 10 días sin respuesta.
-                    </span>
-                  </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '16px' }}>🚨</span>
+                  <span>
+                    <strong>¡Alerta de Demora!</strong> Hay <strong style={{ color: '#ef4444' }}>{criticalTicketsCount}</strong> reclamos del último mes con ≥10 días sin respuesta.
+                  </span>
                 </div>
                 <button 
                   onClick={() => setDelayFilter('CRITICO')}
@@ -437,15 +432,15 @@ export default function AdminPortal({ currentUser }) {
                     background: '#ef4444',
                     color: '#ffffff',
                     border: 'none',
-                    padding: '8px 16px',
-                    borderRadius: '8px',
+                    padding: '4px 10px',
+                    borderRadius: '6px',
                     fontWeight: '600',
-                    fontSize: '13px',
+                    fontSize: '12px',
                     cursor: 'pointer',
-                    boxShadow: '0 2px 8px rgba(239,68,68,0.4)'
+                    whiteSpace: 'nowrap'
                   }}
                 >
-                  Ver Reclamos Críticos
+                  Ver Críticos
                 </button>
               </div>
             )}
