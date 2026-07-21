@@ -59,29 +59,37 @@ export default function UserPortal() {
       area: selectedCategory
     };
 
-    fetch(URL_PLANILLA, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(dataToSend)
-    })
-    .then(() => {
-      setSuccess(true);
-      setFormData({
-        titulo: '',
-        nombre: '',
-        secretaria: '',
-        aprobador: '',
-        cargo: 'Administrativo/a',
-        ubicacion: '',
-        necesita: ''
+    const jsonString = JSON.stringify(dataToSend);
+    const blobData = new Blob([jsonString], { type: 'text/plain;charset=utf-8' });
+
+    try {
+      fetch(URL_PLANILLA, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: blobData
+      }).catch(() => {
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon(URL_PLANILLA, blobData);
+        }
       });
-      // Scroll to top
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    })
-    .catch((err) => {
-      console.error("Error al enviar reclamo:", err);
+    } catch (err) {
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(URL_PLANILLA, blobData);
+      }
+    }
+
+    setSuccess(true);
+    setFormData({
+      titulo: '',
+      nombre: '',
+      secretaria: '',
+      aprobador: '',
+      cargo: 'Administrativo/a',
+      ubicacion: '',
+      necesita: ''
     });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
