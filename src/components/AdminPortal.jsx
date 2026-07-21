@@ -476,7 +476,7 @@ export default function AdminPortal({ currentUser }) {
               <div className="stat-card" style={{ background: 'rgba(234, 179, 8, 0.08)', borderColor: 'rgba(234, 179, 8, 0.25)' }}>
                 <div className="stat-icon" style={{ background: 'rgba(234, 179, 8, 0.15)', color: '#facc15' }}>⚠️</div>
                 <div className="stat-info">
-                  <h4>Demora >6 días (Mes)</h4>
+                  <h4>Demora &gt; 6 días (Mes)</h4>
                   <div className="stat-number" style={{ color: '#facc15' }}>{warningTicketsCount}</div>
                 </div>
               </div>
