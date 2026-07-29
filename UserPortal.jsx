@@ -20,7 +20,7 @@ export default function UserPortal() {
   const [photoName, setPhotoName] = useState('');
   const [photoBase64, setPhotoBase64] = useState('');
 
-  const URL_PLANILLA = "https://script.google.com/macros/s/AKfycby1dQEcZGNnrQsV-7VpE-lMkzmuzeyy0bXACmCxnU09de83HrfXRsU4hox4eicHUILS/exec";
+  const URL_PLANILLA = "https://script.google.com/macros/s/AKfycbwKkH0gRN0udd73VUj36twOPXjG-8wFzPtmk23aXQiRKwkqVn0ato8f6lgrRRhUhQg0/exec";
 
   const toggleCategory = (cat) => {
     setActiveCategory(activeCategory === cat ? null : cat);
