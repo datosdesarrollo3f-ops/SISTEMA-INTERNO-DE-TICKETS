@@ -132,6 +132,7 @@ def subir_a_supabase(filas):
 # ⚙️  CONFIGURACIÓN
 # ====================================================
 CARPETA_GUARDADO = r"G:\Mi unidad\SG"
+CARPETA_FOTOS    = os.path.join(CARPETA_GUARDADO, "Fotos Reclamos")
 NOMBRE_ARCHIVO   = "aprobaciones_municipio_completo.xlsx"
 JIRA_BASE_URL    = "https://moderytecno3f.atlassian.net"
 CLOUD_ID         = "483863ff-abbe-4c9b-8d97-74035a8c7768"
@@ -239,6 +240,54 @@ def extraer_respuesta_proforma(answer_obj: dict, q_info: dict) -> str:
         return parsear_fecha(answer_obj["date"])
 
     return ""
+
+
+# ------------------------------------------------------------------
+# DESCARGA DE ADJUNTOS DESDE JIRA
+# ------------------------------------------------------------------
+
+def descargar_adjuntos(session: requests.Session, ticket_ref: str, fecha_carga: str, attachments_data: list) -> str:
+    if not attachments_data:
+        return ""
+    
+    # Sanear fecha para nombre de carpeta (quitar / y :)
+    fecha_saneada = fecha_carga.replace("/", "-").replace(":", "-").replace(" ", "_")
+    nombre_carpeta = f"{ticket_ref}_{fecha_saneada}"
+    ruta_carpeta = os.path.join(CARPETA_FOTOS, nombre_carpeta)
+    
+    try:
+        os.makedirs(ruta_carpeta, exist_ok=True)
+    except Exception as e:
+        print(f"      ⚠️  No se pudo crear la carpeta para fotos de {ticket_ref}: {e}")
+        return ""
+    
+    descargados = 0
+    for att in attachments_data:
+        filename = att.get("filename")
+        content_url = att.get("_links", {}).get("content")
+        if not filename or not content_url:
+            continue
+            
+        try:
+            r = session.get(content_url)
+            if r.status_code == 200:
+                ruta_archivo = os.path.join(ruta_carpeta, filename)
+                with open(ruta_archivo, "wb") as f:
+                    f.write(r.content)
+                descargados += 1
+        except Exception as e:
+            print(f"      ⚠️  Error descargando adjunto {filename}: {e}")
+            
+    if descargados > 0:
+        print(f"      📸 Descargados {descargados} adjuntos para {ticket_ref} en {nombre_carpeta}")
+        return ruta_carpeta
+    else:
+        try:
+            if os.path.exists(ruta_carpeta) and not os.listdir(ruta_carpeta):
+                os.rmdir(ruta_carpeta)
+        except Exception:
+            pass
+        return ""
 
 
 # ------------------------------------------------------------------
@@ -546,14 +595,25 @@ def procesar_ticket(session: requests.Session, ticket: dict) -> tuple[dict, list
         "Tipo de problema":        "",
         "Detalle de solicitud":    "",
         "Aprobador":               "",
+        "FOTOS":                   "",
     }
 
     # ---- 2A: campos estándar de la API de Service Desk ----
     issue_id = ""
-    r_det = session.get(f"{JIRA_BASE_URL}/rest/servicedeskapi/request/{ref}")
+    r_det = session.get(f"{JIRA_BASE_URL}/rest/servicedeskapi/request/{ref}?expand=attachment")
     if r_det.status_code == 200:
         d        = r_det.json()
         issue_id = d.get("issueId", "")
+        created_date_raw = d.get("createdDate", {})
+        fecha_carga_ticket = parsear_fecha(created_date_raw)
+
+        # Descargar adjuntos si existen
+        attachments_data = d.get("attachments", {}).get("values", [])
+        if attachments_data and fecha_carga_ticket:
+            ruta_fotos = descargar_adjuntos(session, ref, fecha_carga_ticket, attachments_data)
+            if ruta_fotos:
+                nombre_carpeta = os.path.basename(ruta_fotos)
+                campos["FOTOS"] = f'=HYPERLINK(".\\Fotos Reclamos\\{nombre_carpeta}", "Ver Fotos")'
 
         for campo in d.get("requestFieldValues", []):
             label = campo.get("label", "")
@@ -685,6 +745,7 @@ def formatear_datos_finales(datos: list[dict], actividades: list[dict], estado_a
             "DETALLE": d.get("Detalle de solicitud", ""),
             "NOMBRE Y APELLIDO SOLICITANTE": d.get("Nombre y Apellido", ""),
             "CARGO SOLICITANTE": d.get("Cargo laboral", ""),
+            "FOTOS": d.get("FOTOS", ""),
             "ACCIONES": acciones_texto.strip(),
             "ESTADO DEL RECLAMO": estado_reclamo
         }
