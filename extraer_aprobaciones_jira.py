@@ -242,10 +242,72 @@ def extraer_respuesta_proforma(answer_obj: dict, q_info: dict) -> str:
 
 
 # ------------------------------------------------------------------
-# SESIÓN DESDE CHROME
+# SESIÓN DESDE CHROME (CON AUTO-APERTURA Y CONTROL DE PUERTOS)
 # ------------------------------------------------------------------
 
+def check_port_open(ip: str, port: int) -> bool:
+    import socket
+    try:
+        with socket.create_connection((ip, port), timeout=1):
+            return True
+    except OSError:
+        return False
+
+def iniciar_chrome_debug_automaticamente() -> bool:
+    import subprocess
+    import winreg
+    
+    print("🌐 Buscando y abriendo Chrome en modo depuración (puerto 9222)...")
+    rutas = [
+        "chrome.exe",
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+    ]
+    try:
+        key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe")
+        ruta_reg, _ = winreg.QueryValueEx(key, "")
+        if os.path.exists(ruta_reg):
+            rutas.insert(0, ruta_reg)
+    except Exception:
+        pass
+
+    for r in rutas:
+        try:
+            # Iniciamos Chrome con el puerto de depuración y perfil de datos
+            subprocess.Popen([
+                r,
+                "--remote-debugging-port=9222",
+                "--user-data-dir=C:\\ChromeDebug",
+                "--no-first-run",
+                "--no-default-browser-check"
+            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return True
+        except Exception:
+            continue
+    return False
+
 def construir_sesion_desde_chrome() -> requests.Session:
+    # 1. Verificar si el puerto 9222 está activo
+    if not check_port_open("127.0.0.1", 9222):
+        print("⚠️  Puerto 9222 cerrado.")
+        # Intentar iniciar Chrome automáticamente
+        if iniciar_chrome_debug_automaticamente():
+            print("   ⏳ Esperando que se inicie la ventana de Chrome (6 segundos)...")
+            time.sleep(6)
+        else:
+            raise RuntimeError(
+                "❌ No se pudo encontrar ni iniciar Google Chrome automáticamente.\n"
+                "   Por favor, ábrelo manualmente con: chrome.exe --remote-debugging-port=9222 --user-data-dir=\"C:\\ChromeDebug\""
+            )
+
+    # 2. Re-verificar si el puerto se abrió
+    if not check_port_open("127.0.0.1", 9222):
+        raise RuntimeError(
+            "❌ Chrome no está respondiendo en el puerto 9222.\n"
+            "   Asegúrate de cerrar todas las ventanas abiertas de Chrome normal y reinténtalo,\n"
+            "   ya que pueden estar bloqueando el puerto de depuración."
+        )
+
     print("🔌 Conectando al Chrome abierto en puerto 9222...")
     options = Options()
     options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
@@ -254,18 +316,31 @@ def construir_sesion_desde_chrome() -> requests.Session:
         driver = webdriver.Chrome(options=options)
     except Exception as e:
         raise RuntimeError(
-            f"❌ No pude conectarme a Chrome.\n"
-            f"   Abrilo con: chrome.exe --remote-debugging-port=9222 --user-data-dir=\"C:\\ChromeDebug\"\n"
-            f"   Error: {e}"
+            f"❌ Error de Selenium al conectarse a Chrome.\n"
+            f"   Asegúrate de que no haya perfiles bloqueados y de que Chrome esté abierto en el puerto 9222.\n"
+            f"   Detalle del error: {e}"
         )
 
     url_jira = f"{JIRA_BASE_URL}/servicedesk/customer/user/approvals?approvalQueryType=myApproval"
     driver.get(url_jira)
-    print("   ⏳ Esperando que cargue la sesión...")
+    print("   ⏳ Esperando que cargue la sesión en Chrome...")
     time.sleep(5)
 
     todas_las_cookies = driver.get_cookies()
     user_agent        = driver.execute_script("return navigator.userAgent;")
+    
+    # Comprobar si realmente estamos logueados en Jira en este perfil
+    url_actual = driver.current_url
+    if "login" in url_actual.lower() or "auth" in url_actual.lower():
+        # No cerrar el driver para dejar la ventana abierta y que el usuario se loguee
+        print("\n🔑 [!] REQUIERE INICIO DE SESIÓN:")
+        print("   Por favor, inicia sesión en la ventana de Chrome que se acaba de abrir.")
+        print("   Una vez logueado, vuelve a presionar el botón de descarga en la página.\n")
+        raise RuntimeError(
+            "🔑 Requiere iniciar sesión en Jira. Por favor, completa el inicio de sesión en el navegador abierto "
+            "y vuelve a presionar el botón de descarga en tu página."
+        )
+
     xsrf_token        = next(
         (c["value"] for c in todas_las_cookies
          if c["name"] in ("atlassian.xsrf.token", "XSRF-TOKEN", "xsrf_token")),
