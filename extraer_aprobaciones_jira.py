@@ -885,4 +885,10 @@ def extraer_aprobaciones_totales():
         print("\n⚠️  No se procesaron solicitudes.")
 
 if __name__ == "__main__":
-    extraer_aprobaciones_totales()
+    try:
+        extraer_aprobaciones_totales()
+    except Exception as e:
+        import traceback
+        print(f"\n❌ Error durante la ejecución del bot: {e}", file=sys.stderr)
+        traceback.print_exc()
+        sys.exit(1)
