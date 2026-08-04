@@ -132,7 +132,7 @@ def subir_a_supabase(filas):
 # ⚙️  CONFIGURACIÓN
 # ====================================================
 CARPETA_GUARDADO = r"G:\Mi unidad\SG"
-CARPETA_FOTOS    = os.path.join(CARPETA_GUARDADO, "Fotos Reclamos")
+CARPETA_FOTOS    = r"G:\Mi unidad\SISTEMA INTERNO\FOTOS RECLAMOS"
 NOMBRE_ARCHIVO   = "aprobaciones_municipio_completo.xlsx"
 JIRA_BASE_URL    = "https://moderytecno3f.atlassian.net"
 CLOUD_ID         = "483863ff-abbe-4c9b-8d97-74035a8c7768"
@@ -370,7 +370,7 @@ def construir_sesion_desde_chrome() -> requests.Session:
             f"   Detalle del error: {e}"
         )
 
-    url_jira = f"{JIRA_BASE_URL}/servicedesk/customer/user/approvals?approvalQueryType=myApproval"
+    url_jira = f"{JIRA_BASE_URL}/servicedesk/customer/user/requests?reporter=all"
     driver.get(url_jira)
     print("   ⏳ Esperando que cargue la sesión en Chrome...")
     time.sleep(5)
@@ -532,16 +532,16 @@ def mapear_campos_proforma(forms_data: list[dict], campos: dict):
 # FASE 1 — lista maestra
 # ------------------------------------------------------------------
 
-def descargar_lista_maestra(session: requests.Session, query_type: str) -> list[dict]:
-    print(f"🚀 Descargando lista maestra de tickets ({query_type})...")
+def descargar_lista_maestra(session: requests.Session, reporter_filter: str = "all") -> list[dict]:
+    print(f"🚀 Descargando lista maestra de solicitudes (reporter={reporter_filter})...")
     url, tickets, pagina = f"{JIRA_BASE_URL}/rest/servicedesk/1/customer/models", [], 1
 
     while True:
         payload = {
-            "options": {"approvalListFilter": {
-                "filter": "", "approvalQueryType": query_type, "selectedPage": pagina
+            "options": {"requestSearchFilter": {
+                "filter": "", "reporter": reporter_filter, "selectedPage": pagina
             }},
-            "models": ["approvalListFilter"],
+            "models": ["requestSearchFilter"],
         }
         r = session.post(url, json=payload)
         if r.status_code != 200:
@@ -549,9 +549,9 @@ def descargar_lista_maestra(session: requests.Session, query_type: str) -> list[
             break
 
         data = r.json()
-        if "approvalListFilter" not in data: break
+        info = data.get("requestSearchFilter") or data.get("approvalListFilter")
+        if not info: break
 
-        info = data["approvalListFilter"]
         for t in info.get("requests", []):
             ref         = t.get("key", "")
             portal_base = t.get("portalBaseUrl", "")
@@ -613,7 +613,7 @@ def procesar_ticket(session: requests.Session, ticket: dict) -> tuple[dict, list
             ruta_fotos = descargar_adjuntos(session, ref, fecha_carga_ticket, attachments_data)
             if ruta_fotos:
                 nombre_carpeta = os.path.basename(ruta_fotos)
-                campos["FOTOS"] = f'=HYPERLINK(".\\Fotos Reclamos\\{nombre_carpeta}", "Ver Fotos")'
+                campos["FOTOS"] = f'=HYPERLINK("..\\SISTEMA INTERNO\\FOTOS RECLAMOS\\{nombre_carpeta}", "Ver Fotos")'
 
         for campo in d.get("requestFieldValues", []):
             label = campo.get("label", "")
@@ -875,18 +875,14 @@ def procesar_lista_tickets(session: requests.Session, tickets: list[dict], desc:
 def extraer_aprobaciones_totales():
     session = construir_sesion_desde_chrome()
     
-    print("\n=== EXTRACCIÓN DE TICKETS APROBADOS ===")
-    tickets_aprobados = descargar_lista_maestra(session, "myApproval")
-    datos_a, act_a = procesar_lista_tickets(session, tickets_aprobados, "aprobados")
+    print("\n=== EXTRACCIÓN DE SOLICITUDES DE JIRA ===")
+    tickets_solicitudes = descargar_lista_maestra(session, "all")
+    datos_s, act_s = procesar_lista_tickets(session, tickets_solicitudes, "solicitudes")
 
-    print("\n=== EXTRACCIÓN DE TICKETS PENDIENTES ===")
-    tickets_pendientes = descargar_lista_maestra(session, "myPending")
-    datos_p, act_p = procesar_lista_tickets(session, tickets_pendientes, "pendientes")
-
-    if datos_a or datos_p:
-        guardar_excel_completo(datos_a, act_a, datos_p, act_p)
+    if datos_s:
+        guardar_excel_completo(datos_s, act_s, [], [])
     else:
-        print("\n⚠️  No se procesaron datos ni aprobados ni pendientes.")
+        print("\n⚠️  No se procesaron solicitudes.")
 
 if __name__ == "__main__":
     extraer_aprobaciones_totales()
