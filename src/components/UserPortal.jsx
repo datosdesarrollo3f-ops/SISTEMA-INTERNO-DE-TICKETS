@@ -11,6 +11,7 @@ export default function UserPortal() {
   const [formData, setFormData] = useState({
     titulo: '',
     nombre: '',
+    cuilLegajo: '',
     secretaria: '',
     cargo: 'Administrativo/a',
     ubicacion: '',
@@ -20,7 +21,7 @@ export default function UserPortal() {
   const [photoName, setPhotoName] = useState('');
   const [photoBase64, setPhotoBase64] = useState('');
 
-  const URL_PLANILLA = "https://script.google.com/macros/s/AKfycbwKkH0gRN0udd73VUj36twOPXjG-8wFzPtmk23aXQiRKwkqVn0ato8f6lgrRRhUhQg0/exec";
+  const URL_PLANILLA = "https://script.google.com/macros/s/AKfycbzdgb06btSBqakYIcoYnNcQPC__XKggAYkEB2D6VqXyjnEZKTUs8DDAY7cyxbw8mRxz/exec";
 
   const toggleCategory = (cat) => {
     setActiveCategory(activeCategory === cat ? null : cat);
@@ -84,6 +85,7 @@ export default function UserPortal() {
     setFormData({
       titulo: '',
       nombre: '',
+      cuilLegajo: '',
       secretaria: '',
       cargo: 'Administrativo/a',
       ubicacion: '',
@@ -99,6 +101,7 @@ export default function UserPortal() {
     const dataToSend = {
       titulo: formData.titulo,
       nombre: formData.nombre,
+      cuilLegajo: formData.cuilLegajo,
       secretaria: formData.secretaria,
       aprobador: '',
       cargo: formData.cargo,
@@ -134,6 +137,7 @@ export default function UserPortal() {
     setFormData({
       titulo: '',
       nombre: '',
+      cuilLegajo: '',
       secretaria: '',
       cargo: 'Administrativo/a',
       ubicacion: '',
@@ -347,6 +351,18 @@ export default function UserPortal() {
                   placeholder="Tu nombre completo"
                   value={formData.nombre}
                   onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="cuilLegajo">CUIL / Legajo</label>
+                <input
+                  type="text"
+                  id="cuilLegajo"
+                  placeholder="ej: 20-12345678-9 / Legajo 1234"
+                  value={formData.cuilLegajo}
+                  onChange={(e) => setFormData({ ...formData, cuilLegajo: e.target.value })}
                   required
                 />
               </div>
