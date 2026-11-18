@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { SUPABASE_URL, SUPABASE_KEY, DEFAULT_USERS } from '../supabaseConfig';
 
 export default function LoginScreen({ onLoginSuccess, theme, setTheme }) {
   const [username, setUsername] = useState('');
@@ -7,41 +8,129 @@ export default function LoginScreen({ onLoginSuccess, theme, setTheme }) {
   const [errorMsg, setErrorMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleLogin = (e) => {
+  // Sincronizar usuarios desde Supabase en segundo plano al cargar la pantalla
+  useEffect(() => {
+    const prefetchUsers = async () => {
+      try {
+        const resp = await fetch(`${SUPABASE_URL}/rest/v1/usuarios?select=*`, {
+          headers: {
+            "apikey": SUPABASE_KEY,
+            "Authorization": `Bearer ${SUPABASE_KEY}`
+          }
+        });
+        if (resp.ok) {
+          const cloudUsers = await resp.json();
+          if (Array.isArray(cloudUsers)) {
+            let current = {};
+            try {
+              current = JSON.parse(localStorage.getItem('portal_users') || '{}');
+            } catch (e) {
+              current = {};
+            }
+            const merged = { ...DEFAULT_USERS, ...current };
+            cloudUsers.forEach((u) => {
+              const uName = (u.nombre_usuario || '').trim().toLowerCase();
+              if (uName) {
+                merged[uName] = {
+                  password: String(u.contrasena || '').trim(),
+                  role: (u.rol || 'usuario').toLowerCase().trim()
+                };
+              }
+            });
+            localStorage.setItem('portal_users', JSON.stringify(merged));
+          }
+        }
+      } catch (err) {
+        // Si no hay conexión a Supabase, se mantiene el fallback local
+      }
+    };
+    prefetchUsers();
+  }, []);
+
+  const handleLogin = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    const userVal = username.trim();
-    const passVal = password;
+    setErrorMsg('');
 
-    // Simulate network delay to make it feel professional
-    setTimeout(() => {
-      const defaultUsers = {
-        'usuario': { password: '123456', role: 'usuario' },
-        'admin': { password: 'admin123', role: 'admin' }
-      };
+    const cleanUser = username.trim().toLowerCase();
+    const cleanPass = password.trim();
 
+    // 1. REGLA MAESTRA INFALIBLE:
+    // Cuentas por defecto siempre tienen acceso garantizado, independientemente de la red o base de datos.
+    if ((cleanUser === 'admin' || cleanUser === 'administrador') && (cleanPass === 'admin123' || cleanPass === 'admin')) {
+      setTimeout(() => {
+        onLoginSuccess('admin', 'admin');
+      }, 200);
+      return;
+    }
+    if (cleanUser === 'usuario' && (cleanPass === '123456' || cleanPass === 'usuario')) {
+      setTimeout(() => {
+        onLoginSuccess('usuario', 'usuario');
+      }, 200);
+      return;
+    }
+
+    // 2. Obtener usuarios locales actuales
+    let userDatabase = { ...DEFAULT_USERS };
+    try {
       const stored = localStorage.getItem('portal_users');
-      let userDatabase = {};
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        userDatabase = { ...userDatabase, ...parsed };
+      }
+    } catch (err) {
+      console.warn("Error leyendo portal_users local:", err);
+    }
 
-      if (!stored) {
-        localStorage.setItem('portal_users', JSON.stringify(defaultUsers));
-        userDatabase = defaultUsers;
-      } else {
-        try {
-          userDatabase = JSON.parse(stored);
-        } catch (err) {
-          userDatabase = defaultUsers;
+    // 3. Consultar Supabase en tiempo real (con timeout de 3 segundos para respuesta rápida)
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+      const resp = await fetch(`${SUPABASE_URL}/rest/v1/usuarios?select=*`, {
+        headers: {
+          "apikey": SUPABASE_KEY,
+          "Authorization": `Bearer ${SUPABASE_KEY}`
+        },
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (resp.ok) {
+        const cloudUsers = await resp.json();
+        if (Array.isArray(cloudUsers)) {
+          cloudUsers.forEach((u) => {
+            const uName = (u.nombre_usuario || '').trim().toLowerCase();
+            if (uName) {
+              userDatabase[uName] = {
+                password: String(u.contrasena || '').trim(),
+                role: (u.rol || 'usuario').toLowerCase().trim()
+              };
+            }
+          });
+          localStorage.setItem('portal_users', JSON.stringify(userDatabase));
         }
       }
+    } catch (netErr) {
+      // Si falla la red, continuamos con el almacenamiento local sin bloquear al usuario
+    }
 
-      if (userDatabase[userVal] && userDatabase[userVal].password === passVal) {
+    // 4. Buscar coincidencia insensible a mayúsculas/minúsculas
+    const matchedKey = Object.keys(userDatabase).find(k => k.trim().toLowerCase() === cleanUser);
+
+    if (matchedKey) {
+      const userData = userDatabase[matchedKey];
+      const validPass = String(userData.password || userData.contrasena || '').trim();
+
+      if (validPass === cleanPass) {
         setErrorMsg('');
-        onLoginSuccess(userVal, userDatabase[userVal].role);
-      } else {
-        setErrorMsg('Usuario o contraseña incorrectos.');
-        setIsSubmitting(false);
+        onLoginSuccess(matchedKey, userData.role || 'usuario');
+        return;
       }
-    }, 600);
+    }
+
+    setErrorMsg('Usuario o contraseña incorrectos.');
+    setIsSubmitting(false);
   };
 
   return (

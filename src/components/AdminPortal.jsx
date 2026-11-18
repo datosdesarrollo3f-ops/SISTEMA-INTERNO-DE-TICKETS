@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
-
-const SUPABASE_URL = "https://mcabmoabfythqrbeywct.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jYWJtb2FiZnl0aHFyYmV5d2N0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5NzIxMjEsImV4cCI6MjA5OTU0ODEyMX0.mOsE8dGseQ493mwfxiIU8_ET1uN4BeYBJ7z4TXh9ik4";
+import { SUPABASE_URL, SUPABASE_KEY, DEFAULT_USERS } from '../supabaseConfig';
 
 const mapSupabaseToTicket = (r) => ({
   "ID PEDIDO": r.id_pedido || '',
@@ -80,6 +78,38 @@ export default function AdminPortal({ currentUser }) {
     }
   };
 
+  const fetchUsersFromSupabase = async () => {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/usuarios?select=*`, {
+        headers: {
+          "apikey": SUPABASE_KEY,
+          "Authorization": `Bearer ${SUPABASE_KEY}`
+        }
+      });
+      if (res.ok) {
+        const cloudUsers = await res.json();
+        if (Array.isArray(cloudUsers)) {
+          setUserList((prev) => {
+            const merged = { ...DEFAULT_USERS, ...prev };
+            cloudUsers.forEach((u) => {
+              const uName = (u.nombre_usuario || '').trim().toLowerCase();
+              if (uName) {
+                merged[uName] = {
+                  password: String(u.contrasena || '').trim(),
+                  role: (u.rol || 'usuario').toLowerCase().trim()
+                };
+              }
+            });
+            localStorage.setItem('portal_users', JSON.stringify(merged));
+            return merged;
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("[Supabase] Error al cargar usuarios desde la nube:", err);
+    }
+  };
+
   const handleRunBotLocal = async () => {
     setBotStatusMessage('⏳ Conectando con el servidor local en tu PC...');
     setBotRunning(true);
@@ -150,23 +180,20 @@ export default function AdminPortal({ currentUser }) {
 
     // 2. Traer en tiempo real la versión más reciente desde Supabase Nube
     fetchTicketsFromSupabase();
+    fetchUsersFromSupabase();
 
-    // Load users from localStorage
-    const defaultUsers = {
-      'usuario': { password: '123456', role: 'usuario' },
-      'admin': { password: 'admin123', role: 'admin' }
-    };
+    // Load users from localStorage (con garantía permanente de DEFAULT_USERS)
     const stored = localStorage.getItem('portal_users');
-    if (!stored) {
-      localStorage.setItem('portal_users', JSON.stringify(defaultUsers));
-      setUserList(defaultUsers);
-    } else {
+    let initialUsers = { ...DEFAULT_USERS };
+    if (stored) {
       try {
-        setUserList(JSON.parse(stored));
+        initialUsers = { ...initialUsers, ...JSON.parse(stored) };
       } catch (err) {
-        setUserList(defaultUsers);
+        initialUsers = { ...DEFAULT_USERS };
       }
     }
+    setUserList(initialUsers);
+    localStorage.setItem('portal_users', JSON.stringify(initialUsers));
   }, []);
 
   // Date & Delay Helper functions
@@ -277,7 +304,7 @@ export default function AdminPortal({ currentUser }) {
   };
 
   // User Management Handlers
-  const handleSaveUser = (e) => {
+  const handleSaveUser = async (e) => {
     e.preventDefault();
     setUserError('');
     setUserSuccess('');
@@ -302,6 +329,15 @@ export default function AdminPortal({ currentUser }) {
       // If renamed, delete old key
       if (editingUsername !== uName) {
         delete updated[editingUsername];
+        try {
+          await fetch(`${SUPABASE_URL}/rest/v1/usuarios?nombre_usuario=eq.${encodeURIComponent(editingUsername)}`, {
+            method: 'DELETE',
+            headers: {
+              "apikey": SUPABASE_KEY,
+              "Authorization": `Bearer ${SUPABASE_KEY}`
+            }
+          });
+        } catch (e) {}
       }
       
       updated[uName] = { password: uPass, role: roleForm };
@@ -319,6 +355,26 @@ export default function AdminPortal({ currentUser }) {
     // Save and clear form
     setUserList(updated);
     localStorage.setItem('portal_users', JSON.stringify(updated));
+
+    // Sincronizar en la nube Supabase para que funcione en cualquier dispositivo
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/usuarios`, {
+        method: 'POST',
+        headers: {
+          "apikey": SUPABASE_KEY,
+          "Authorization": `Bearer ${SUPABASE_KEY}`,
+          "Content-Type": "application/json",
+          "Prefer": "resolution=merge-duplicates"
+        },
+        body: JSON.stringify([{
+          nombre_usuario: uName,
+          contrasena: uPass,
+          rol: roleForm
+        }])
+      });
+    } catch (cloudErr) {
+      console.warn("No se pudo sincronizar usuario con Supabase:", cloudErr);
+    }
     
     setUsernameForm('');
     setPasswordForm('');
@@ -335,12 +391,17 @@ export default function AdminPortal({ currentUser }) {
     setRoleForm(userList[uname].role);
   };
 
-  const handleDeleteUser = (uname) => {
+  const handleDeleteUser = async (uname) => {
     setUserError('');
     setUserSuccess('');
     
     if (uname === currentUser) {
       setUserError('No puedes eliminar el usuario con el que estás conectado actualmente.');
+      return;
+    }
+
+    if (uname === 'admin' || uname === 'usuario') {
+      setUserError('No puedes eliminar las cuentas maestras predeterminadas (admin / usuario).');
       return;
     }
 
@@ -350,6 +411,19 @@ export default function AdminPortal({ currentUser }) {
     setUserList(updated);
     localStorage.setItem('portal_users', JSON.stringify(updated));
     setUserSuccess('Usuario eliminado con éxito.');
+
+    // Eliminar de la nube Supabase
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/usuarios?nombre_usuario=eq.${encodeURIComponent(uname)}`, {
+        method: 'DELETE',
+        headers: {
+          "apikey": SUPABASE_KEY,
+          "Authorization": `Bearer ${SUPABASE_KEY}`
+        }
+      });
+    } catch (e) {
+      console.warn("Error eliminando usuario de Supabase:", e);
+    }
     
     // Clear editing state if the deleted user was being edited
     if (editingUsername === uname) {
